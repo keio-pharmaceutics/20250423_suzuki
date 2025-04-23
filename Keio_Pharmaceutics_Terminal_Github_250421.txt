@@ -1,0 +1,101 @@
+# Versions
+
+# Mac OS: Sequoia 15.3.2
+# sra-tools: 3.2.1
+# FastQC: 0.11.9
+# Trimmomatic: 0.39
+# Salmon: 1.9.0
+# mouse transcripts: GRCm39 (NCBI Refseq Assembly)
+# rat transcripts: GRCr8 (NCBI Refseq Assembly)
+# human transcripts: GRCh38.p14 (NCBI Refseq Assembly)
+
+
+
+# Data Explanation
+
+# mouse_LZ: paired-end mouse labyrinth RNA-seq data
+# rat_LZ: paired-end rat labyrinth RNA-seq data
+# SRR15514355: single-end human syncytiotrophoblast RNA-seq data (GSE182381)
+# SRR15514356: single-end human syncytiotrophoblast RNA-seq data (GSE182381)
+# SRR15514387: paired-end human syncytiotrophoblast RNA-seq data (GSE182381)
+
+
+
+# We do not include any places of files and change of directories.
+# First, we got .fastq data of human syncytiotrophoblast's RNA-seq from GSE182381, and changed to .fq.gz file.
+
+prefetch SRR15514355 SRR15514356 SRR15514387
+
+for i in SRR15514355 SRR15514356 SRR15514387
+do
+ fasterq-dump -p ${i}.sra --split-files
+done
+
+for f in *.fastq
+do
+ mv ${f} ${f%.fastq}.fq
+ gzip ${f%.fastq}.fq
+done
+
+
+
+# Next, we performed quality control.
+
+for f in *.fq.gz
+do
+ fastqc -o output ${f} -t 100
+done
+
+
+
+# Next, we trimmed adaptor sequences from all .fq.gz data.
+# Adaptor sequences were gotten from "https://github.com/timflutre/trimmomatic/tree/master/adapters" on April 15, 2025.
+
+for f in mouse_LZ rat_LZ SRR15514387
+do
+ trimmomatic PE -phred33 -threads 100 forward/sequence/${f}_1.fq.gz reverse/sequence/${f}_2.fq.gz forward/output/trim_${f}_1.fq.gz forward/unpair/output/unp_${f}_1.fq.gz reverse/output/trim_${f}_2.fq.gz reverse/unpair/output/unp_${f}_2.fq.gz LEADING:20 SLIDINGWINDOW:4:15 MINLEN:36 ILLUMINACLIP:illumina/universal/primer/TruSeq3-PE.fa:2:30:10
+done
+
+for f in SRR15514355 SRR15514356
+do
+ trimmomatic SE -phred33 -threads 100 sequence/${f}_1.fq.gz output/trim_${f}_1.fq.gz LEADING:20 SLIDINGWINDOW:4:15 MINLEN:36 ILLUMINACLIP:illumina/universal/primer/TruSeq3-SE.fa:2:30:10
+done
+
+
+
+# Next, we re-performed quality control to confirme removal of the adapters.
+
+for f in *.fq.gz
+do
+ fastqc -o output ${f} -t 100
+done
+
+
+
+# Then, we built salmon indexes for each species and performed quantification of transcripts.
+
+salmon index -t mouse/transcripts.fa -i mouse_transcripts_index_refseq
+salmon index -t rat/transcripts.fa -i rat_transcripts_index_refseq
+salmon index -t human/transcripts.fa -i human_transcripts_index_refseq
+
+mkdir mouse_LZ_refseq_salmon
+salmon quant -i mouse_transcripts_index_refseq -l A -1 trimmed/forward/sequence/trim_mouse_LZ_1.fq.gz -2 trimmed/reverse/sequence/trim_mouse_LZ_2.fq.gz --validateMappings -o output/mouse_LZ_refseq_salmon
+mkdir rat_LZ_refseq_salmon
+salmon quant -i rat_transcripts_index_refseq -l A -1 trimmed/forward/sequence/trim_rat_LZ_1.fq.gz -2 trimmed/reverse/sequence/trim_rat_LZ_2.fq.gz --validateMappings -o output/rat_LZ_refseq_salmon
+mkdir SRR15514387_refseq_salmon
+salmon quant -i human_transcripts_index_refseq -l A -1 trimmed/forward/sequence/trim_SRR15514387_1.fq.gz -2 trimmed/reverse/sequence/trim_SRR15514387_2.fq.gz --validateMappings -o output/SRR15514387_refseq_salmon
+mkdir SRR15514355_refseq_salmon
+salmon quant -i human_transcripts_index_refseq -l A -r trim/trim_SRR15514355_1.fq.gz --seqBias --gcBias --validateMappings --fldMean 200 --fldSD 20 -o output/SRR15514355_refseq_salmon
+mkdir SRR15514356_refseq_salmon
+salmon quant -i human_transcripts_index_refseq -l A -r trim/trim_SRR15514356_1.fq.gz --seqBias --gcBias --validateMappings --fldMean 200 --fldSD 20 -o output/SRR15514356_refseq_salmon
+
+
+
+# Finally, we moved quant.sf files to another directory for importing to R.
+
+for f in mouse_LZ rat_LZ SRR15514387 SRR15514355 SRR15514356
+do
+ cp ${f}_refseq_salmon/quant.sf new/${f}_quant.sf
+done
+
+
