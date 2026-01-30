@@ -150,4 +150,4 @@ scripts/
 results/
 
 - Thread numbers in terminal commands should be adjusted according to available computational resources.
-- Raw sequencing data are not included in this repository.
+- Raw sequencing data are not included in this repository (deposited in the NCBI Gene Expression Omnibus (GEO) repository under the accession number GSE295294).
