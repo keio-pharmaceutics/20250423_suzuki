@@ -150,4 +150,4 @@ scripts/
 results/
 
 - Thread numbers in terminal commands should be adjusted according to available computational resources.
-- Raw sequencing data are not included in this repository (deposited in the NCBI Gene Expression Omnibus (GEO) repository under the accession number GSE295294).
+- Raw sequencing data are not included in this repository. All raw FASTQ files are publicly available through the NCBI Gene Expression Omnibus (GEO) under accession GSE295294, and through the Sequence Read Archive (SRA) under accessions SRR33249214 and SRR33249215.
